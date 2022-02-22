@@ -143,9 +143,11 @@ private:
         cout << "Data -> [" << node->val << "]" << endl;
 
         if(node->left != nullptr){
+            cout << "l ";
             show_tree(node->left, shift + 1);
         }
         if(node->right != nullptr){
+            cout << "r ";
             show_tree(node->right, shift + 1);
         }
     }
@@ -188,6 +190,10 @@ private:
 
 
 public:
+    AVLTree(Node *root): root(root){
+
+    }
+
     Node *find(int val){
         return find(val, root);
     }
@@ -374,7 +380,98 @@ public:
             cout << "Empty tree!" << endl;
         }
     }
+
+    friend AVLTree* merge(AVLTree &tree1, AVLTree &tree2);
+
+    static Node* equal_left_height_node(Node* node, int height){
+        if(node->height <= height){
+            return node;
+        }
+        return equal_left_height_node(node->left, height);
+    }
 };
+
+
+AVLTree* merge(AVLTree &tree1, AVLTree &tree2) {
+    if(tree1.root == nullptr){
+        return &tree2;
+    }
+
+    if(tree2.root == nullptr){
+        return &tree1;
+    }
+
+    Node *min_node1 = tree1.search_min(tree1.root);
+    Node *max_node1 = tree1.search_max(tree1.root);
+    Node *min_node2 = tree2.search_min(tree2.root);
+    Node *max_node2 = tree2.search_max(tree2.root);
+
+    if (max_node2->val < min_node1->val) {
+        //tree2 < tree1
+        return  merge(tree2, tree1);
+    }
+
+    if (max_node1->val < min_node2->val) {
+        //tree1 < tree2
+        if(max_node1 == tree1.root){
+            //if the first tree has only one node, insert it to tree2
+            tree2.insert_avl(max_node1->val);
+            return &tree2;
+        }
+        else{
+            if(min_node2 == tree2.root){
+                //if the second tree has only one node, insert it to tree1
+                tree1.insert_avl(min_node2->val);
+                return &tree1;
+            }
+        }
+
+
+        //delete the most right node
+        Node *tmp = max_node1->parent;
+
+        max_node1->parent = nullptr;
+        tmp->right = nullptr;
+        tree1.rebalance(tmp);
+
+        int current_height = tree1.height(tree1.root);
+
+        // equal_left_height_node returns the most left node with the same height as current height
+        Node *appropriate_node = AVLTree::equal_left_height_node(tree2.root, current_height);
+        Node *appropriate_node_parent = appropriate_node->parent;
+
+
+        if(appropriate_node != tree2.root){
+            //detach appropriate_node from tree2 if not root
+            appropriate_node->parent = nullptr;
+            appropriate_node_parent->left = nullptr;
+            tree2.rebalance(appropriate_node_parent);
+        }
+
+        //creating new subtree
+
+        max_node1->left = tree1.root;
+        max_node1->right = appropriate_node;
+        max_node1->left->parent = max_node1;
+        max_node1->right->parent = max_node1;
+
+        AVLTree *subtree = new AVLTree(max_node1);
+        subtree->rebalance(appropriate_node);
+
+        if(appropriate_node_parent == nullptr){
+            return subtree;
+        }
+
+        appropriate_node_parent->left = subtree->root;
+        max_node1->parent = appropriate_node_parent;
+        tree2.rebalance(appropriate_node_parent);
+
+        return &tree2;
+    }
+
+    // it's forbidden to merge such trees
+    return nullptr;
+}
 
 
 void shuffle(vector<int> arr){
@@ -391,28 +488,38 @@ void shuffle(vector<int> arr){
 
 
 int main(){
-    AVLTree avlTree;
-    int nb;
-    int size = 90000000;
-    vector<int> nb_array;
+    AVLTree avlTree1(nullptr);
+    AVLTree avlTree2(nullptr);
 
-    for(int i = 0; i <= size; i++){
-        nb = rand()%200000;
-        avlTree.insert_avl(nb);
-        nb_array.push_back(nb);
+    int size1;
+    int size2;
+
+    while(true){
+        size1 = rand() % 1000;
+        size2 = rand() % 1000;
+
+        cout << size1 << " " << size2 << endl;
+
+        for(int i = 0; i < size1; i++){
+            avlTree1.insert_avl(rand()%1000 + 2000);
+        }
+
+        for(int i = 0; i < size2; i++){
+            avlTree2.insert_avl(rand()%1000);
+        }
+
+        AVLTree *res = merge(avlTree1, avlTree2);
+
+        if(!res->is_avl()){
+            cout << "INVALID!!!!!!!!!!!!" << endl;
+            avlTree1.show_tree();
+            avlTree2.show_tree();
+
+            res->show_tree();
+            break;
+        }
     }
 
-    //avlTree.show_tree();
-
-    shuffle(nb_array);
-
-
-    for(int i = 0; i <= size; i++){
-        avlTree.remove(nb_array[i]);
-    }
-
-    avlTree.show_tree();
-    cout << avlTree.is_avl() << endl;
 
     return 0;
 }
